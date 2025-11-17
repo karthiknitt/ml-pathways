@@ -9,11 +9,19 @@ let db: ReturnType<typeof drizzle> | null = null;
 
 export function getDb() {
   if (!db) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is not set");
+    const connectionString = process.env.DATABASE_URL;
+
+    // Allow missing DATABASE_URL during build time
+    if (!connectionString) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error("DATABASE_URL environment variable is not set");
+      }
+      // Return a dummy DB for build time
+      console.warn("DATABASE_URL not set - using dummy database for build");
+      return null as any;
     }
 
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({ connectionString });
     db = drizzle(pool, { schema });
   }
 

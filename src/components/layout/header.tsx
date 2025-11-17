@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useSession, signOut } from "@/lib/auth-client";
 
 export function Header() {
+  const { data: session, isPending } = useSession();
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/";
+  };
+
   return (
     <header className="border-b bg-white sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -40,12 +48,27 @@ export function Header() {
         </nav>
 
         <div className="flex items-center space-x-4">
-          <Button variant="outline" asChild>
-            <Link href="/login">Sign In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">Get Started</Link>
-          </Button>
+          {isPending ? (
+            <div className="w-20 h-9 bg-gray-100 animate-pulse rounded" />
+          ) : session ? (
+            <>
+              <span className="text-sm text-gray-600 hidden md:inline">
+                {session.user?.name || session.user?.email}
+              </span>
+              <Button variant="outline" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" asChild>
+                <Link href="/login">Sign In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/signup">Get Started</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
