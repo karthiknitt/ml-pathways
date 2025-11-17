@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { experiments, executions, chatMessages } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 // GET /api/experiments/[experimentId] - Get a specific experiment with its details
 export async function GET(
@@ -10,6 +11,15 @@ export async function GET(
 ) {
   try {
     const { experimentId } = await params;
+
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
 
     const [experiment] = await db()
       .select()
@@ -20,6 +30,14 @@ export async function GET(
       return NextResponse.json(
         { error: "Experiment not found" },
         { status: 404 }
+      );
+    }
+
+    // Verify ownership
+    if (experiment.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Forbidden. You don't have access to this experiment." },
+        { status: 403 }
       );
     }
 
@@ -59,6 +77,15 @@ export async function PATCH(
   try {
     const { experimentId } = await params;
     const body = await request.json();
+
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
     const { name, description, configuration } = body;
 
     const updateData: any = { updatedAt: new Date() };
@@ -96,6 +123,35 @@ export async function DELETE(
 ) {
   try {
     const { experimentId } = await params;
+
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    // Verify ownership before deleting
+    const [experiment] = await db()
+      .select()
+      .from(experiments)
+      .where(eq(experiments.id, experimentId));
+
+    if (!experiment) {
+      return NextResponse.json(
+        { error: "Experiment not found" },
+        { status: 404 }
+      );
+    }
+
+    if (experiment.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Forbidden. You don't have access to this experiment." },
+        { status: 403 }
+      );
+    }
 
     await db().delete(experiments).where(eq(experiments.id, experimentId));
 

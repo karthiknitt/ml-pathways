@@ -3,7 +3,7 @@ import { Pool, neonConfig } from "@neondatabase/serverless";
 import * as schema from "./schema";
 
 // Configure Neon for WebSocket
-neonConfig.fetchConnectionCache = true;
+// Note: fetchConnectionCache is now always true (deprecated option)
 
 let db: ReturnType<typeof drizzle> | null = null;
 

@@ -56,11 +56,19 @@ export default function ProblemPage({ params }: ProblemPageProps) {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to create experiment");
+      const data = await response.json();
 
-      const { experiment } = await response.json();
-      router.push(`/workspace/${experiment.id}`);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create experiment");
+      }
+
+      if (!data.experiment) {
+        throw new Error("No experiment data returned");
+      }
+
+      router.push(`/workspace/${data.experiment.id}`);
     } catch (error: any) {
+      console.error("Create experiment error:", error);
       alert(`Failed to create experiment: ${error.message}`);
     } finally {
       setCreating(false);

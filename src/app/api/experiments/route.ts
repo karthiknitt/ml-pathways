@@ -2,14 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { experiments, datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 // GET /api/experiments - Get all experiments for the current user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
+    // Check database connection
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL environment variable." },
+        { status: 503 }
+      );
+    }
 
-    const userExperiments = await db()
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to view experiments." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
+
+    const userExperiments = await database
       .select({
         id: experiments.id,
         name: experiments.name,
@@ -44,6 +62,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, problemType, datasetId, configuration } = body;
 
+    console.log("Creating experiment with:", { name, description, problemType, datasetId });
+
     // Validation
     if (!name || !problemType) {
       return NextResponse.json(
@@ -52,10 +72,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
+    // Check database connection
+    const database = db();
+    if (!database) {
+      console.error("Database not available - DATABASE_URL not set");
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL in your .env file and restart the server." },
+        { status: 503 }
+      );
+    }
 
-    const [newExperiment] = await db()
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to create experiments." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
+
+    const [newExperiment] = await database
       .insert(experiments)
       .values({
         userId,
@@ -67,6 +105,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
+    console.log("Experiment created:", newExperiment);
     return NextResponse.json({ experiment: newExperiment }, { status: 201 });
   } catch (error: any) {
     console.error("Failed to create experiment:", error);
