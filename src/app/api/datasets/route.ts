@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { ensureDemoUser } from "@/lib/ensure-demo-user";
 
 // GET /api/datasets - Get all datasets for the current user
 export async function GET(request: NextRequest) {
   try {
     // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
+    // For now, ensure demo user exists
+    const userId = await ensureDemoUser();
 
     const userDatasets = await db()
       .select()
@@ -49,7 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
+    // For now, ensure demo user exists
+    const userId = await ensureDemoUser();
 
     const [newDataset] = await db()
       .insert(datasets)

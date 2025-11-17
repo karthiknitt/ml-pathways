@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { experiments, datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { ensureDemoUser } from "@/lib/ensure-demo-user";
 
 // GET /api/experiments - Get all experiments for the current user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
-
     // Check database connection
     const database = db();
     if (!database) {
@@ -17,6 +15,10 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       );
     }
+
+    // TODO: Get userId from session
+    // For now, ensure demo user exists
+    const userId = await ensureDemoUser();
 
     const userExperiments = await database
       .select({
@@ -74,7 +76,8 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: Get userId from session
-    const userId = "demo-user"; // Placeholder until auth is fully wired
+    // For now, ensure demo user exists
+    const userId = await ensureDemoUser();
 
     const [newExperiment] = await database
       .insert(experiments)
