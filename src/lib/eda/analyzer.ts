@@ -113,3 +113,6 @@ function generateSummary(rowCount: number, columns: ColumnInfo[]): string {
 
   return `Dataset contains ${rowCount} rows and ${columns.length} columns (${numericCols} numeric, ${categoricalCols} categorical). Total missing values: ${totalMissing}.`;
 }
+
+// Export with alternate name for backward compatibility
+export { analyzeDataset as performEDA };

@@ -28,4 +28,5 @@ export function getDb() {
   return db;
 }
 
-export { schema };
+// Export both as named export and default for convenience
+export { getDb as db, schema };
