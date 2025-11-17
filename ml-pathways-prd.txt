@@ -1,0 +1,120 @@
+ML Pathways v1.0 – Agentic ML Problem Playground
+Overview
+ML Pathways is an interactive web-based platform inspired by Andrew Ng’s Foundations of Machine Learning. Users can explore core ML problems through a hands-on workflow: selecting an ML problem, choosing or uploading datasets, chatting with an agent for EDA and Q&A, generating code, and executing it safely—with all results visualized and explained. Perfect for learning, experimenting, and understanding data science step by step.
+
+Core Features
+ML Problem Menu: Users select from foundational ML tasks (see below).
+
+Sample Datasets Library: For every problem type, agent presents a curated sample dataset—ideal for demos or exploration before uploading custom data.
+
+Data Upload: Users can upload their own CSV datasets.
+
+Automated EDA Dashboard: The agent creates interactive data summaries and visualizations.
+
+Conversational Q&A: Users ask questions about data or ML approach; the agent responds and explains.
+
+Suggestion Engine: Agent suggests solvable tasks for the dataset + chosen algorithm.
+
+Python Code Generation & Explanation: The agent writes and demystifies the code, step by step.
+
+Sandboxed Execution: Secure, remote code execution (e2b/Modal) with instant result feedback.
+
+Graphical Outputs: Results, errors, and model metrics displayed as intuitive graphs.
+
+Interpretation & Guidance: Agent helps users interpret results and refine their approach.
+
+Supported ML Problems (from Andrew Ng’s Course)
+Linear Regression with One Variable
+
+Sample dataset: Predict housing prices by size.
+
+Linear Regression with Multiple Variables (Multivariate)
+
+Sample dataset: Predict housing prices by size, rooms, location, etc.
+
+Logistic Regression (Binary Classification)
+
+Sample dataset: Predict admit/reject for university based on test scores.
+
+Regularized Regression
+
+Sample dataset: Predict prices or outcomes with feature overfitting.
+
+Polynomial Regression
+
+Sample dataset: Predict trends with nonlinear relationships (e.g., population growth).
+
+Classification with Multi-class (One-vs-All)
+
+Sample dataset: Classify handwritten digits (MNIST-style sample).
+
+Neural Networks (Basic feedforward for Classification)
+
+Sample dataset: Classify objects/images with simple neural networks.
+
+Optional/Stretch:
+
+K-means Clustering: Cluster exercise (e.g., customer segmentation).
+
+Principal Component Analysis: Dimensionality reduction.
+
+User Workflow
+Authentication via BetterAuth
+
+Problem Selection (with sample dataset preview)
+
+Option to Upload Own Dataset or Proceed with Agent Sample
+
+Automated EDA & Visualization
+
+Agent Q&A for Data/Algorithm Understanding
+
+Suggested Questions/Explorations
+
+Code Generation & Explanation
+
+Safe Code Execution (e2b/Modal)
+
+Results & Agent-Guided Interpretation
+
+Experiment Branching (via Neon DB)
+
+Technical Stack
+Layer	Technology
+Frontend	Next.js with Shadcn UI
+Backend API	Node.js (API routes in Next.js)
+Sandbox Execution	e2b or Modal (Python code, ML jobs)
+AI Agent/LLM	OpenAI GPT-4, Claude, Gemini
+File Storage	Cloudflare R2
+Authentication	BetterAuth
+Database	Neon Serverless Postgres (with branching for experimentation)
+Charts/Graphs	Plotly.js, Recharts, Shadcn UI components
+Logging	Sentry (errors), Logflare (optional)
+API Gateway/Security	Next.js Middleware (auth, rate limiting, request hooks)
+Infra/Deployment	Vercel (Next.js), Docker (backend as needed)
+Security, Privacy, and Scalability
+Containerized Execution: All code runs isolated using e2b/Modal.
+
+Data Security: Strict access, branch isolation for user experiments, fast rollback.
+
+Observability: Sentry captures all errors and exceptions for user safety.
+
+API Security: Next.js Middleware efficiently controls rate limiting and endpoint protections.
+
+Extensibility & Roadmap
+Add additional models (e.g., SVM, Decision Trees, Ensemble methods) as new course modules.
+
+Expand agent-powered community features (share datasets, collaborative Q&A).
+
+Integrate advanced experiment tracking and leaderboard capabilities.
+
+Success Metrics
+Rate of user engagement and course completion.
+
+Frequency/quality of questions asked via agent.
+
+Reliability of sandbox code execution.
+
+Learner progression and satisfaction.
+
+ML Pathways v1.0 will help bridge theory and practical ML application, providing engaging, agent-powered learning and experimentation.
