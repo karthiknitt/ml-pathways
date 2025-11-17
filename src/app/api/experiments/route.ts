@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { experiments, datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { ensureDemoUser } from "@/lib/ensure-demo-user";
+import { getSession } from "@/lib/get-session";
 
 // GET /api/experiments - Get all experiments for the current user
 export async function GET(request: NextRequest) {
@@ -16,9 +16,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Get userId from session
-    // For now, ensure demo user exists
-    const userId = await ensureDemoUser();
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to view experiments." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
 
     const userExperiments = await database
       .select({
@@ -75,9 +82,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Get userId from session
-    // For now, ensure demo user exists
-    const userId = await ensureDemoUser();
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to create experiments." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
 
     const [newExperiment] = await database
       .insert(experiments)

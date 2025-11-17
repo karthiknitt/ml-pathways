@@ -2,14 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { ensureDemoUser } from "@/lib/ensure-demo-user";
+import { getSession } from "@/lib/get-session";
 
 // GET /api/datasets - Get all datasets for the current user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get userId from session
-    // For now, ensure demo user exists
-    const userId = await ensureDemoUser();
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to view datasets." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
 
     const userDatasets = await db()
       .select()
@@ -50,9 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Get userId from session
-    // For now, ensure demo user exists
-    const userId = await ensureDemoUser();
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to create datasets." },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
 
     const [newDataset] = await db()
       .insert(datasets)
