@@ -9,7 +9,16 @@ export async function GET(request: NextRequest) {
     // TODO: Get userId from session
     const userId = "demo-user"; // Placeholder until auth is fully wired
 
-    const userExperiments = await db()
+    // Check database connection
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL environment variable." },
+        { status: 503 }
+      );
+    }
+
+    const userExperiments = await database
       .select({
         id: experiments.id,
         name: experiments.name,
@@ -44,6 +53,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, problemType, datasetId, configuration } = body;
 
+    console.log("Creating experiment with:", { name, description, problemType, datasetId });
+
     // Validation
     if (!name || !problemType) {
       return NextResponse.json(
@@ -52,10 +63,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check database connection
+    const database = db();
+    if (!database) {
+      console.error("Database not available - DATABASE_URL not set");
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL in your .env file and restart the server." },
+        { status: 503 }
+      );
+    }
+
     // TODO: Get userId from session
     const userId = "demo-user"; // Placeholder until auth is fully wired
 
-    const [newExperiment] = await db()
+    const [newExperiment] = await database
       .insert(experiments)
       .values({
         userId,
@@ -67,6 +88,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
+    console.log("Experiment created:", newExperiment);
     return NextResponse.json({ experiment: newExperiment }, { status: 201 });
   } catch (error: any) {
     console.error("Failed to create experiment:", error);
