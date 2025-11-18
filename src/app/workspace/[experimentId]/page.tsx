@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { use } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,11 +37,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
 
-  useEffect(() => {
-    fetchExperiment();
-  }, [experimentId]);
-
-  const fetchExperiment = async () => {
+  const fetchExperiment = useCallback(async () => {
     try {
       const response = await fetch(`/api/experiments/${experimentId}`);
       if (response.ok) {
@@ -49,7 +46,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
         // Load previous messages if any
         if (data.messages && data.messages.length > 0) {
-          setMessages([messages[0], ...data.messages.reverse()]);
+          setMessages((prev) => [prev[0], ...data.messages.reverse()]);
         }
 
         // Load latest execution if any
@@ -69,7 +66,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     } catch (error) {
       console.error("Failed to fetch experiment:", error);
     }
-  };
+  }, [experimentId]);
+
+  useEffect(() => {
+    fetchExperiment();
+  }, [fetchExperiment]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || loading) return;
@@ -316,7 +317,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                               {executionResult.charts.map((chart: any, idx: number) => (
                                 <div key={idx} className="mb-4">
                                   {chart.type === "png" && (
-                                    <img src={`data:image/png;base64,${chart.data}`} alt="Chart" />
+                                    <Image
+                                      src={`data:image/png;base64,${chart.data}`}
+                                      alt="Chart"
+                                      width={800}
+                                      height={600}
+                                      className="w-full h-auto"
+                                    />
                                   )}
                                   {chart.type === "svg" && (
                                     <div dangerouslySetInnerHTML={{ __html: chart.data }} />
