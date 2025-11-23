@@ -37,6 +37,11 @@ Requirements:
 - Make it educational and easy to understand
 - Include data loading, preprocessing, model training, and evaluation
 
+IMPORTANT - Data Loading:
+- The dataset file is available as 'data.csv' in the current working directory
+- Load it using: data = pd.read_csv('data.csv')
+- Use the variable name 'data' for the DataFrame throughout the code
+
 Provide only the Python code, well-formatted and ready to execute.`,
       },
     ];
