@@ -7,6 +7,15 @@ import { getSession } from "@/lib/get-session";
 // GET /api/datasets - Get all datasets for the current user
 export async function GET(request: NextRequest) {
   try {
+    // Check if database is available
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL environment variable." },
+        { status: 503 }
+      );
+    }
+
     // Get authenticated user
     const session = await getSession(request);
     if (!session?.user?.id) {
@@ -18,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    const userDatasets = await db()
+    const userDatasets = await database
       .select()
       .from(datasets)
       .where(eq(datasets.userId, userId))
@@ -37,6 +46,15 @@ export async function GET(request: NextRequest) {
 // POST /api/datasets - Create a new dataset record
 export async function POST(request: NextRequest) {
   try {
+    // Check if database is available
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured. Please set DATABASE_URL environment variable." },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const {
       name,
@@ -68,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
-    const [newDataset] = await db()
+    const [newDataset] = await database
       .insert(datasets)
       .values({
         userId,
