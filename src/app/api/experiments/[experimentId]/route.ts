@@ -55,10 +55,22 @@ export async function GET(
       .where(eq(chatMessages.experimentId, experimentId))
       .orderBy(desc(chatMessages.createdAt));
 
+    // Get dataset if available
+    let dataset = null;
+    if (experiment.datasetId) {
+      const { datasets } = await import("@/db/schema");
+      const [datasetRecord] = await db()
+        .select()
+        .from(datasets)
+        .where(eq(datasets.id, experiment.datasetId));
+      dataset = datasetRecord || null;
+    }
+
     return NextResponse.json({
       experiment,
       executions: experimentExecutions,
       messages,
+      dataset,
     });
   } catch (error: any) {
     console.error("Failed to fetch experiment:", error);
@@ -86,6 +98,27 @@ export async function PATCH(
         { status: 401 }
       );
     }
+
+    // Verify ownership
+    const [experiment] = await db()
+      .select()
+      .from(experiments)
+      .where(eq(experiments.id, experimentId));
+
+    if (!experiment) {
+      return NextResponse.json(
+        { error: "Experiment not found" },
+        { status: 404 }
+      );
+    }
+
+    if (experiment.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Forbidden. You don't have access to this experiment." },
+        { status: 403 }
+      );
+    }
+
     const { name, description, configuration } = body;
 
     const updateData: any = { updatedAt: new Date() };
@@ -98,13 +131,6 @@ export async function PATCH(
       .set(updateData)
       .where(eq(experiments.id, experimentId))
       .returning();
-
-    if (!updatedExperiment) {
-      return NextResponse.json(
-        { error: "Experiment not found" },
-        { status: 404 }
-      );
-    }
 
     return NextResponse.json({ experiment: updatedExperiment });
   } catch (error: any) {

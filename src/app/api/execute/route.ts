@@ -25,13 +25,8 @@ export async function POST(request: NextRequest) {
 
     // Try to execute with E2B
     try {
-      // Dynamically import to handle cases where package might not be installed correctly
-      const e2bModule = await import("@e2b/code-interpreter");
-
-      // The package exports might vary, try different approaches
-      const Sandbox = (e2bModule as any).Sandbox ||
-                     (e2bModule as any).CodeInterpreter ||
-                     (e2bModule as any).default;
+      // Import the Sandbox class from E2B
+      const { Sandbox } = await import("@e2b/code-interpreter");
 
       if (!Sandbox) {
         throw new Error("E2B module not properly loaded");
@@ -40,30 +35,63 @@ export async function POST(request: NextRequest) {
       const sandbox = await Sandbox.create({ apiKey });
 
       try {
-        // If dataset URL is provided, download it first
-        if (datasetUrl) {
-          await sandbox.notebook.execCell(`
-import requests
-import pandas as pd
-from io import StringIO
+        let verifyResult: any = null;
 
-# Download dataset
-response = requests.get('${datasetUrl}')
-df = pd.read_csv(StringIO(response.text))
-print(f"Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+        // If dataset URL is provided, download and save it as a CSV file
+        if (datasetUrl) {
+          let csvContent = "";
+
+          // Download the dataset content
+          if (datasetUrl.startsWith("data:")) {
+            // Handle data URL (base64 encoded)
+            const base64Data = datasetUrl.split(",")[1];
+            csvContent = Buffer.from(base64Data, "base64").toString("utf-8");
+          } else {
+            // Handle regular URL
+            const response = await fetch(datasetUrl);
+            csvContent = await response.text();
+          }
+
+          // Write the CSV file to the sandbox filesystem (in the working directory)
+          await sandbox.files.write("data.csv", csvContent);
+
+          // Verify the file was created and print debug info
+          verifyResult = await sandbox.runCode(`
+import pandas as pd
+import os
+
+# Debug: Show current working directory and list files
+print("Current working directory:", os.getcwd())
+print("Files in current directory:", os.listdir('.'))
+
+# Verify data.csv exists and load it
+if os.path.exists('data.csv'):
+    df_temp = pd.read_csv('data.csv')
+    print(f"✓ Dataset loaded successfully: {df_temp.shape[0]} rows, {df_temp.shape[1]} columns")
+    print(f"✓ Columns: {list(df_temp.columns)}")
+    del df_temp
+else:
+    print("✗ ERROR: data.csv not found!")
+    print("Available files:", os.listdir('.'))
 `);
+
+          console.log("Dataset verification:", verifyResult.text);
         }
 
         // Execute the user code
-        const execution = await sandbox.notebook.execCell(code);
+        const execution = await sandbox.runCode(code);
 
         // Collect results
-        const output = {
-          text: execution.text || "",
-          results: execution.results,
-          error: execution.error,
-          logs: execution.logs,
-        };
+        let output = "";
+
+        // Include verification output if dataset was loaded
+        if (datasetUrl && verifyResult) {
+          output += verifyResult.text + "\n\n" + "=".repeat(50) + "\n\n";
+        }
+
+        output += execution.text || "";
+
+        const hasError = execution.error !== null && execution.error !== undefined;
 
         // Get any plots/visualizations
         const charts = (execution.results || [])
@@ -73,17 +101,19 @@ print(f"Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
             data: result.png || result.svg,
           }));
 
-        await sandbox.close();
+        // Use kill() instead of close() in E2B v1.5.x
+        await sandbox.kill();
 
         return NextResponse.json({
-          status: execution.error ? "error" : "success",
-          output: output.text,
-          error: execution.error?.value || null,
+          status: hasError ? "error" : "success",
+          output: output,
+          error: execution.error?.value || execution.error?.name || null,
           charts,
           logs: execution.logs || [],
         });
       } catch (error) {
-        await sandbox.close();
+        // Ensure sandbox is killed even on error
+        await sandbox.kill();
         throw error;
       }
     } catch (e2bError: any) {

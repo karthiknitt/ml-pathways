@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { performEDA } from "@/lib/eda/analyzer";
 import { db } from "@/db";
 import { edaResults, datasets } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 // POST /api/eda - Perform exploratory data analysis on a dataset
 export async function POST(request: NextRequest) {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       .select()
       .from(edaResults)
       .where(eq(edaResults.datasetId, datasetId))
-      .orderBy(edaResults.createdAt);
+      .orderBy(desc(edaResults.createdAt));
 
     return NextResponse.json({
       results: results.length > 0 ? results[results.length - 1] : null,

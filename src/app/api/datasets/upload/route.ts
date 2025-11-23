@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/get-session";
 
 // POST /api/datasets/upload - Handle file upload
 export async function POST(request: NextRequest) {
   try {
+    // Get authenticated user
+    const session = await getSession(request);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to upload datasets." },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -17,6 +27,15 @@ export async function POST(request: NextRequest) {
     if (!file.name.endsWith(".csv")) {
       return NextResponse.json(
         { error: "Only CSV files are supported" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (max 10MB for data URL approach)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "File size exceeds 10MB limit. Please upload a smaller file." },
         { status: 400 }
       );
     }

@@ -21,6 +21,29 @@ type ExecutionResult = {
   logs?: any[];
 };
 
+type DatasetInfo = {
+  id: string;
+  name: string;
+  fileUrl: string;
+  rowCount: number | null;
+  columnInfo: any;
+};
+
+type EdaAnalysis = {
+  rowCount: number;
+  columnCount: number;
+  columns: Array<{
+    name: string;
+    type: string;
+    uniqueCount: number;
+    nullCount: number;
+    stats?: any;
+    topValues?: any;
+  }>;
+  missingValues: Record<string, number>;
+  summary: string;
+};
+
 export default function WorkspacePage({ params }: { params: Promise<{ experimentId: string }> }) {
   const { experimentId } = use(params);
 
@@ -36,6 +59,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [dataset, setDataset] = useState<DatasetInfo | null>(null);
+  const [edaAnalysis, setEdaAnalysis] = useState<EdaAnalysis | null>(null);
+  const [showDataSummary, setShowDataSummary] = useState(false);
+  const [showEdaReport, setShowEdaReport] = useState(false);
+  const [loadingEda, setLoadingEda] = useState(false);
+  const [activeTab, setActiveTab] = useState("chat");
 
   const fetchExperiment = useCallback(async () => {
     try {
@@ -43,6 +72,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
       if (response.ok) {
         const data = await response.json();
         setExperiment(data.experiment);
+
+        // Load dataset if available
+        if (data.dataset) {
+          setDataset(data.dataset);
+        }
 
         // Load previous messages if any
         if (data.messages && data.messages.length > 0) {
@@ -109,16 +143,27 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const handleGenerateCode = async () => {
     setLoading(true);
     try {
+      const datasetInfo = dataset
+        ? {
+            columns: dataset.columnInfo
+              ? typeof dataset.columnInfo === "string"
+                ? JSON.parse(dataset.columnInfo)
+                : dataset.columnInfo
+              : ["feature1", "target"],
+            rowCount: dataset.rowCount || 100,
+          }
+        : {
+            columns: ["feature1", "target"],
+            rowCount: 100,
+          };
+
       const response = await fetch("/api/generate-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           problemType: experiment?.problemType,
           task: "Generate code for this ML problem",
-          datasetInfo: {
-            columns: ["feature1", "target"],
-            rowCount: 100,
-          },
+          datasetInfo,
         }),
       });
 
@@ -126,6 +171,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
       const data = await response.json();
       setGeneratedCode(data.code);
+      // Automatically switch to the Code tab to show the generated code
+      setActiveTab("code");
     } catch (error: any) {
       console.error("Code generation error:", error);
       alert(`Failed to generate code: ${error.message}`);
@@ -146,7 +193,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: generatedCode,
-          datasetUrl: null, // Can be added later with actual dataset
+          datasetUrl: dataset?.fileUrl || null,
         }),
       });
 
@@ -154,6 +201,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
       const data = await response.json();
       setExecutionResult(data);
+      // Automatically switch to the Results tab to show execution results
+      setActiveTab("results");
     } catch (error: any) {
       console.error("Execution error:", error);
       setExecutionResult({
@@ -161,6 +210,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         output: "",
         error: error.message,
       });
+      // Also switch to results tab on error to show the error message
+      setActiveTab("results");
     } finally {
       setExecuting(false);
     }
@@ -169,6 +220,74 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const handleCopyCode = () => {
     navigator.clipboard.writeText(generatedCode);
     alert("Code copied to clipboard!");
+  };
+
+  const handleViewDataSummary = () => {
+    if (!dataset) {
+      alert("No dataset available. Please upload a dataset first.");
+      return;
+    }
+    setShowDataSummary(true);
+  };
+
+  const handleGenerateEdaReport = async () => {
+    if (!dataset || !dataset.fileUrl) {
+      alert("No dataset available. Please upload a dataset first.");
+      return;
+    }
+
+    setLoadingEda(true);
+    try {
+      const response = await fetch("/api/eda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          datasetId: dataset.id,
+          dataUrl: dataset.fileUrl,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate EDA report");
+
+      const data = await response.json();
+      setEdaAnalysis(data.analysis);
+      setShowEdaReport(true);
+    } catch (error: any) {
+      console.error("EDA error:", error);
+      alert(`Failed to generate EDA report: ${error.message}`);
+    } finally {
+      setLoadingEda(false);
+    }
+  };
+
+  const handleExportResults = () => {
+    if (!executionResult) {
+      alert("No results to export. Please run your code first.");
+      return;
+    }
+
+    const exportData = {
+      experiment: {
+        id: experimentId,
+        name: experiment?.name,
+        problemType: experiment?.problemType,
+      },
+      code: generatedCode,
+      result: executionResult,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${experiment?.name.replace(/\s+/g, "_")}_results.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (!experiment) {
@@ -188,7 +307,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="chat">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="chat">Chat & EDA</TabsTrigger>
               <TabsTrigger value="code">Code</TabsTrigger>
@@ -376,19 +495,156 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
               <Button variant="outline" className="w-full justify-start" size="sm" onClick={handleGenerateCode} disabled={loading}>
                 Generate Code
               </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm" disabled>
+              <Button variant="outline" className="w-full justify-start" size="sm" onClick={handleViewDataSummary} disabled={!dataset}>
                 View Data Summary
               </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm" disabled>
-                Generate EDA Report
+              <Button variant="outline" className="w-full justify-start" size="sm" onClick={handleGenerateEdaReport} disabled={!dataset || loadingEda}>
+                {loadingEda ? "Generating..." : "Generate EDA Report"}
               </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm" disabled>
+              <Button variant="outline" className="w-full justify-start" size="sm" onClick={handleExportResults} disabled={!executionResult}>
                 Export Results
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Data Summary Modal */}
+      {showDataSummary && dataset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDataSummary(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-bold">Dataset Summary</h2>
+              <Button variant="outline" size="sm" onClick={() => setShowDataSummary(false)}>
+                Close
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Dataset Name</p>
+                  <p className="text-lg font-semibold">{dataset.name}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Rows</p>
+                  <p className="text-lg font-semibold">{dataset.rowCount?.toLocaleString() || "N/A"}</p>
+                </div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Columns ({dataset.columnInfo ? (typeof dataset.columnInfo === "string" ? JSON.parse(dataset.columnInfo).length : dataset.columnInfo.length) : 0})</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {dataset.columnInfo &&
+                    (typeof dataset.columnInfo === "string"
+                      ? JSON.parse(dataset.columnInfo)
+                      : dataset.columnInfo
+                    ).map((col: any, idx: number) => (
+                      <div key={idx} className="text-sm bg-white p-2 rounded">
+                        {typeof col === "string" ? col : col.name || `Column ${idx + 1}`}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDA Report Modal */}
+      {showEdaReport && edaAnalysis && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowEdaReport(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-bold">Exploratory Data Analysis Report</h2>
+              <Button variant="outline" size="sm" onClick={() => setShowEdaReport(false)}>
+                Close
+              </Button>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Rows</p>
+                  <p className="text-2xl font-bold">{edaAnalysis.rowCount.toLocaleString()}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Columns</p>
+                  <p className="text-2xl font-bold">{edaAnalysis.columnCount}</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Missing Values</p>
+                  <p className="text-2xl font-bold">
+                    {Object.values(edaAnalysis.missingValues).reduce((a: number, b: number) => a + b, 0)}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Column Analysis</h3>
+                <div className="space-y-4">
+                  {edaAnalysis.columns.map((col, idx) => (
+                    <div key={idx} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-semibold">{col.name}</h4>
+                        <span className={`text-xs px-2 py-1 rounded ${col.type === "numeric" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                          {col.type}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Unique:</span>
+                          <span className="ml-1 font-medium">{col.uniqueCount}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Missing:</span>
+                          <span className="ml-1 font-medium">{col.nullCount}</span>
+                        </div>
+                        {col.stats && (
+                          <>
+                            <div>
+                              <span className="text-gray-600">Mean:</span>
+                              <span className="ml-1 font-medium">{col.stats.mean?.toFixed(2) || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Std Dev:</span>
+                              <span className="ml-1 font-medium">{col.stats.std?.toFixed(2) || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Min:</span>
+                              <span className="ml-1 font-medium">{col.stats.min?.toFixed(2) || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Max:</span>
+                              <span className="ml-1 font-medium">{col.stats.max?.toFixed(2) || "N/A"}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {col.topValues && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-600 mb-1">Top Values:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(col.topValues).slice(0, 5).map(([value, count]: [string, any], i) => (
+                              <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {value}: {count}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {edaAnalysis.summary && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-2">Summary</h3>
+                  <p className="text-sm text-gray-700">{edaAnalysis.summary}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
