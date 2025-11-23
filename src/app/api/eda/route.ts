@@ -35,23 +35,26 @@ export async function POST(request: NextRequest) {
 
     // If datasetId is provided, save results to database
     if (datasetId) {
-      const [edaRecord] = await db()
-        .insert(edaResults)
-        .values({
-          datasetId,
-          statistics: analysis as any,
-          correlations: {},
-          distributions: {},
-          missingValues: {},
-          outliers: {},
-        })
-        .returning();
+      const database = db();
+      if (database) {
+        const [edaRecord] = await database
+          .insert(edaResults)
+          .values({
+            datasetId,
+            statistics: analysis as any,
+            correlations: {},
+            distributions: {},
+            missingValues: {},
+            outliers: {},
+          })
+          .returning();
 
-      return NextResponse.json({
-        success: true,
-        analysis,
-        edaId: edaRecord.id,
-      });
+        return NextResponse.json({
+          success: true,
+          analysis,
+          edaId: edaRecord.id,
+        });
+      }
     }
 
     return NextResponse.json({
@@ -70,6 +73,14 @@ export async function POST(request: NextRequest) {
 // GET /api/eda?datasetId=xxx - Get existing EDA results for a dataset
 export async function GET(request: NextRequest) {
   try {
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 503 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const datasetId = searchParams.get("datasetId");
 
@@ -80,7 +91,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const results = await db()
+    const results = await database
       .select()
       .from(edaResults)
       .where(eq(edaResults.datasetId, datasetId))

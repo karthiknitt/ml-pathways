@@ -10,6 +10,14 @@ export async function GET(
   { params }: { params: Promise<{ experimentId: string }> }
 ) {
   try {
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 503 }
+      );
+    }
+
     const { experimentId } = await params;
 
     // Get authenticated user
@@ -21,7 +29,7 @@ export async function GET(
       );
     }
 
-    const [experiment] = await db()
+    const [experiment] = await database
       .select()
       .from(experiments)
       .where(eq(experiments.id, experimentId));
@@ -42,14 +50,14 @@ export async function GET(
     }
 
     // Get related executions
-    const experimentExecutions = await db()
+    const experimentExecutions = await database
       .select()
       .from(executions)
       .where(eq(executions.experimentId, experimentId))
       .orderBy(desc(executions.createdAt));
 
     // Get chat history
-    const messages = await db()
+    const messages = await database
       .select()
       .from(chatMessages)
       .where(eq(chatMessages.experimentId, experimentId))
@@ -59,7 +67,7 @@ export async function GET(
     let dataset = null;
     if (experiment.datasetId) {
       const { datasets } = await import("@/db/schema");
-      const [datasetRecord] = await db()
+      const [datasetRecord] = await database
         .select()
         .from(datasets)
         .where(eq(datasets.id, experiment.datasetId));
@@ -87,6 +95,14 @@ export async function PATCH(
   { params }: { params: Promise<{ experimentId: string }> }
 ) {
   try {
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 503 }
+      );
+    }
+
     const { experimentId } = await params;
     const body = await request.json();
 
@@ -100,7 +116,7 @@ export async function PATCH(
     }
 
     // Verify ownership
-    const [experiment] = await db()
+    const [experiment] = await database
       .select()
       .from(experiments)
       .where(eq(experiments.id, experimentId));
@@ -126,7 +142,7 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (configuration) updateData.configuration = configuration;
 
-    const [updatedExperiment] = await db()
+    const [updatedExperiment] = await database
       .update(experiments)
       .set(updateData)
       .where(eq(experiments.id, experimentId))
@@ -148,6 +164,14 @@ export async function DELETE(
   { params }: { params: Promise<{ experimentId: string }> }
 ) {
   try {
+    const database = db();
+    if (!database) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 503 }
+      );
+    }
+
     const { experimentId } = await params;
 
     // Get authenticated user
@@ -160,7 +184,7 @@ export async function DELETE(
     }
 
     // Verify ownership before deleting
-    const [experiment] = await db()
+    const [experiment] = await database
       .select()
       .from(experiments)
       .where(eq(experiments.id, experimentId));
@@ -179,7 +203,7 @@ export async function DELETE(
       );
     }
 
-    await db().delete(experiments).where(eq(experiments.id, experimentId));
+    await database.delete(experiments).where(eq(experiments.id, experimentId));
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
