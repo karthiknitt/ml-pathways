@@ -56,6 +56,54 @@ Provide only the Python code, well-formatted and ready to execute.`,
       code = codeBlockMatch[1];
     }
 
+    // FAILSAFE: Ensure data loading code is present
+    // Check if the code contains data loading from 'data.csv'
+    const hasDataLoading = /pd\.read_csv\s*\(\s*['"]data\.csv['"]\s*\)/i.test(code);
+
+    if (!hasDataLoading) {
+      console.log("⚠️ Generated code missing data loading - injecting it automatically");
+
+      // Check if pandas is imported
+      const hasPandasImport = /import\s+pandas\s+as\s+pd/i.test(code);
+
+      // Prepare the data loading snippet
+      const dataLoadingSnippet = `# Load the dataset
+data = pd.read_csv('data.csv')
+print(f"Dataset loaded: {data.shape[0]} rows, {data.shape[1]} columns")
+print(f"Columns: {list(data.columns)}")
+print()
+
+`;
+
+      if (hasPandasImport) {
+        // If pandas is already imported, inject data loading after imports
+        // Find the last import statement
+        const importLines = code.split('\n');
+        let lastImportIndex = -1;
+
+        for (let i = 0; i < importLines.length; i++) {
+          if (/^\s*(import|from)\s+/.test(importLines[i])) {
+            lastImportIndex = i;
+          }
+        }
+
+        if (lastImportIndex >= 0) {
+          // Inject after the last import
+          importLines.splice(lastImportIndex + 1, 0, '', dataLoadingSnippet.trim());
+          code = importLines.join('\n');
+        } else {
+          // Just prepend if we can't find imports (shouldn't happen)
+          code = dataLoadingSnippet + code;
+        }
+      } else {
+        // If pandas is not imported, add both import and data loading at the top
+        const fullSnippet = `import pandas as pd
+
+${dataLoadingSnippet}`;
+        code = fullSnippet + code;
+      }
+    }
+
     return NextResponse.json({
       code,
       explanation: "Generated code for " + task,
