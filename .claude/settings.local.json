@@ -13,7 +13,8 @@
       "Bash(npm run build:*)",
       "WebSearch",
       "WebFetch(domain:e2b.dev)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

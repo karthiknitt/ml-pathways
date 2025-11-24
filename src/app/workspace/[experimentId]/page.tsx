@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { use } from "react";
 import Image from "next/image";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -378,8 +380,19 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                 <CardContent>
                   {generatedCode ? (
                     <>
-                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm max-h-96 overflow-y-auto">
-                        <pre>{generatedCode}</pre>
+                      <div className="rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+                        <SyntaxHighlighter
+                          language="python"
+                          style={vscDarkPlus}
+                          customStyle={{
+                            margin: 0,
+                            padding: "1rem",
+                            fontSize: "0.875rem",
+                          }}
+                          showLineNumbers
+                        >
+                          {generatedCode}
+                        </SyntaxHighlighter>
                       </div>
                       <div className="mt-4 flex gap-2">
                         <Button onClick={handleRunCode} disabled={executing}>

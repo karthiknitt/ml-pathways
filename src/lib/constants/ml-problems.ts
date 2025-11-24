@@ -114,3 +114,16 @@ export function getProblemsByCategory(category: MLProblem["category"]): MLProble
 export function getProblemsByDifficulty(difficulty: MLProblem["difficulty"]): MLProblem[] {
   return ML_PROBLEMS.filter((problem) => problem.difficulty === difficulty);
 }
+
+// Sample dataset file mapping
+export const SAMPLE_DATASET_FILES: Record<MLProblemType, string> = {
+  linear_regression_single: "/sample-data/housing-single.csv",
+  linear_regression_multiple: "/sample-data/housing-multiple.csv",
+  logistic_regression: "/sample-data/admissions.csv",
+  regularized_regression: "/sample-data/regularized-pricing.csv",
+  polynomial_regression: "/sample-data/population-growth.csv",
+  multiclass_classification: "/sample-data/digits.csv",
+  neural_networks: "/sample-data/images.csv",
+  kmeans_clustering: "/sample-data/customer-segments.csv",
+  pca: "/sample-data/high-dimensional.csv",
+};

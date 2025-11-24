@@ -3,6 +3,8 @@ import { performEDA } from "@/lib/eda/analyzer";
 import { db } from "@/db";
 import { edaResults, datasets } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { promises as fs } from "fs";
+import path from "path";
 
 // POST /api/eda - Perform exploratory data analysis on a dataset
 export async function POST(request: NextRequest) {
@@ -21,11 +23,15 @@ export async function POST(request: NextRequest) {
     let csvContent: string;
 
     if (dataUrl.startsWith("data:")) {
-      // Handle data URL
+      // Handle data URL (base64 encoded CSV)
       const base64Data = dataUrl.split(",")[1];
       csvContent = Buffer.from(base64Data, "base64").toString("utf-8");
+    } else if (dataUrl.startsWith("/sample-data/") || dataUrl.startsWith("sample-data/")) {
+      // Handle local sample dataset file
+      const filePath = path.join(process.cwd(), "src/lib", dataUrl);
+      csvContent = await fs.readFile(filePath, "utf-8");
     } else {
-      // Handle regular URL
+      // Handle regular HTTP URL
       const response = await fetch(dataUrl);
       csvContent = await response.text();
     }

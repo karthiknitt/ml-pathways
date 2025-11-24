@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,9 +48,26 @@ export async function POST(request: NextRequest) {
             // Handle data URL (base64 encoded)
             const base64Data = datasetUrl.split(",")[1];
             csvContent = Buffer.from(base64Data, "base64").toString("utf-8");
+          } else if (datasetUrl.startsWith("/sample-data/") || datasetUrl.startsWith("sample-data/")) {
+            // Handle local sample dataset file
+            const filePath = path.join(process.cwd(), "src/lib", datasetUrl);
+            csvContent = await fs.readFile(filePath, "utf-8");
           } else {
-            // Handle regular URL
-            const response = await fetch(datasetUrl);
+            // Handle regular URL or relative path
+            let fullUrl = datasetUrl;
+
+            // If it's a relative path (starts with /), construct the full URL
+            if (datasetUrl.startsWith("/")) {
+              // Get the base URL from the request
+              const host = request.headers.get("host") || "localhost:3000";
+              const protocol = request.headers.get("x-forwarded-proto") || "http";
+              fullUrl = `${protocol}://${host}${datasetUrl}`;
+            }
+
+            const response = await fetch(fullUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch dataset from ${fullUrl}: ${response.statusText}`);
+            }
             csvContent = await response.text();
           }
 
@@ -86,10 +105,24 @@ else:
 
         // Include verification output if dataset was loaded
         if (datasetUrl && verifyResult) {
-          output += verifyResult.text + "\n\n" + "=".repeat(50) + "\n\n";
+          // Capture stdout from verification
+          const verifyStdout = verifyResult.logs?.stdout?.join("\n") || verifyResult.text || "";
+          output += verifyStdout + "\n\n" + "=".repeat(50) + "\n\n";
         }
 
-        output += execution.text || "";
+        // Capture stdout from execution (print statements)
+        const stdout = execution.logs?.stdout?.join("\n") || "";
+        const stderr = execution.logs?.stderr?.join("\n") || "";
+
+        // Combine stdout, stderr, and text (last expression value)
+        output += stdout;
+        if (stderr) {
+          output += "\n" + stderr;
+        }
+        // Add the text output (last expression value) if it exists and is different from stdout
+        if (execution.text && execution.text !== stdout.trim()) {
+          output += "\n" + execution.text;
+        }
 
         const hasError = execution.error !== null && execution.error !== undefined;
 
