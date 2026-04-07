@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ML_PROBLEMS } from "@/lib/constants/ml-problems";
 
 type Dataset = {
   id: string;
@@ -52,20 +53,14 @@ export default function DatasetsPage() {
   };
 
   const uploadedDatasets = datasets.filter((d) => d.source === "uploaded");
-  const sampleDatasets = [
-    {
-      name: "Housing Prices",
-      description: "Predict housing prices based on size, rooms, and location",
-      category: "Regression",
-      type: "linear_regression_single",
-    },
-    {
-      name: "University Admissions",
-      description: "Binary classification for admission prediction",
-      category: "Classification",
-      type: "logistic_regression",
-    },
-  ];
+  const sampleDatasets = ML_PROBLEMS.map((p) => ({
+    name: p.name,
+    description: p.sampleDatasetDescription,
+    category: p.category.charAt(0).toUpperCase() + p.category.slice(1).replace(/_/g, " "),
+    type: p.id,
+    difficulty: p.difficulty,
+    icon: p.icon,
+  }));
 
   if (loading) {
     return (
@@ -130,7 +125,7 @@ export default function DatasetsPage() {
                         </div>
                       </div>
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/problems`}>Use in Experiment</Link>
+                        <Link href="/problems">Choose Problem Type</Link>
                       </Button>
                     </div>
                   </div>
@@ -150,20 +145,27 @@ export default function DatasetsPage() {
               {sampleDatasets.map((sample, idx) => (
                 <div key={idx} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">{sample.name}</h3>
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        sample.category === "Regression"
+                    <h3 className="font-semibold">{sample.icon} {sample.name}</h3>
+                    <div className="flex gap-1">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        sample.category.toLowerCase().includes("regression")
                           ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {sample.category}
-                    </span>
+                          : sample.category.toLowerCase().includes("classification")
+                          ? "bg-green-100 text-green-700"
+                          : sample.category.toLowerCase().includes("clustering")
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}>
+                        {sample.category}
+                      </span>
+                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+                        {sample.difficulty}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{sample.description}</p>
                   <Button asChild size="sm" variant="outline" className="w-full">
-                    <Link href={`/problems`}>Use This Dataset</Link>
+                    <Link href={`/problems/${sample.type}`}>Use This Dataset</Link>
                   </Button>
                 </div>
               ))}
