@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useSession, signOut } from "@/lib/auth-client";
+import { useTheme } from "next-themes";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -15,6 +16,9 @@ const navLinks = [
 export function Header() {
   const { data: session, isPending } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -22,7 +26,7 @@ export function Header() {
   };
 
   return (
-    <header className="border-b bg-white sticky top-0 z-50">
+    <header className="border-b bg-white dark:bg-gray-950 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link
           href="/"
@@ -77,6 +81,17 @@ export function Header() {
             </>
           )}
 
+          {/* Theme toggle button */}
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+          )}
+
           {/* Mobile hamburger button */}
           <button
             className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
@@ -112,7 +127,7 @@ export function Header() {
 
       {/* Mobile dropdown menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white px-4 py-4 space-y-3">
+        <div className="md:hidden border-t dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-4 space-y-3">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -123,7 +138,17 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          <div className="pt-2 border-t space-y-2">
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="flex items-center space-x-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 py-2"
+              aria-label="Toggle theme"
+            >
+              <span>{theme === "dark" ? "☀️" : "🌙"}</span>
+              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            </button>
+          )}
+          <div className="pt-2 border-t dark:border-gray-800 space-y-2">
             {session ? (
               <>
                 <p className="text-sm text-gray-500">

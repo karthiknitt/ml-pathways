@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/layout/header";
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "ML Pathways - Interactive ML Learning Platform",
@@ -14,9 +15,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
-        <Header />
-        {children}
+      <body className="font-sans antialiased dark:bg-gray-950">
+        <Providers>
+          <Header />
+          {children}
+        </Providers>
       </body>
     </html>
   );
