@@ -15,13 +15,34 @@ type Message = {
   content: string;
 };
 
+type ChartResult = {
+  type: "png" | "svg";
+  data: string;
+};
+
 type ExecutionResult = {
   status: string;
   output: string;
   error?: string | null;
-  charts?: any[];
-  logs?: any[];
+  charts?: ChartResult[];
+  logs?: unknown[];
 };
+
+type ExperimentInfo = {
+  id: string;
+  name: string;
+  description: string | null;
+  problemType: string;
+  createdAt: string;
+};
+
+function sanitizeSvg(svg: string): string {
+  // Remove script tags and on* event handlers from SVG to prevent XSS
+  return svg
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/\s+on\w+="[^"]*"/gi, "")
+    .replace(/\s+on\w+='[^']*'/gi, "");
+}
 
 type DatasetInfo = {
   id: string;
@@ -49,7 +70,7 @@ type EdaAnalysis = {
 export default function WorkspacePage({ params }: { params: Promise<{ experimentId: string }> }) {
   const { experimentId } = use(params);
 
-  const [experiment, setExperiment] = useState<any>(null);
+  const [experiment, setExperiment] = useState<ExperimentInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -118,6 +139,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setLoading(true);
 
+    // Add empty assistant message slot to stream into
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -129,16 +153,36 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to get response");
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to get response");
+      }
 
-      const data = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
-    } catch (error: any) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `Error: ${error.message}. Please try again.` },
-      ]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: updated[updated.length - 1].content + chunk,
+          };
+          return updated;
+        });
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: `Error: ${message}. Please try again.`,
+        };
+        return updated;
+      });
     } finally {
       setLoading(false);
     }
@@ -344,7 +388,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                           </div>
                         </div>
                       ))}
-                      {loading && (
+                      {loading && messages[messages.length - 1]?.content === "" && (
                         <div className="flex justify-start">
                           <div className="bg-gray-100 text-gray-900 rounded-lg p-3">
                             <div className="flex gap-1">
