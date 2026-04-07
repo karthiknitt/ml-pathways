@@ -53,7 +53,7 @@ export async function chatWithClaude(messages: ChatMessage[]): Promise<AIRespons
   const conversationMessages = messages.filter(m => m.role !== "system");
 
   const response = await anthropic.messages.create({
-    model: "claude-3-opus-20240229",
+    model: "claude-opus-4-6",
     max_tokens: 2000,
     system: systemMessage,
     messages: conversationMessages.map(msg => ({

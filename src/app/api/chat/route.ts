@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (problemType) systemPrompt += "\n\n" + getMLProblemContext(problemType);
     if (context) systemPrompt += "\n\nAdditional Context:\n" + context;
 
-    const provider = (process.env.AI_PROVIDER as string) || "claude";
+    const provider = process.env.AI_PROVIDER || "claude";
 
     const stream = new ReadableStream({
       async start(controller) {

@@ -16,7 +16,7 @@ const navLinks = [
 export function Header() {
   const { data: session, isPending } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -84,11 +84,11 @@ export function Header() {
           {/* Theme toggle button */}
           {mounted && (
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800"
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              {resolvedTheme === "dark" ? "☀️" : "🌙"}
             </button>
           )}
 
@@ -140,12 +140,12 @@ export function Header() {
           ))}
           {mounted && (
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               className="flex items-center space-x-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 py-2"
               aria-label="Toggle theme"
             >
-              <span>{theme === "dark" ? "☀️" : "🌙"}</span>
-              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+              <span>{resolvedTheme === "dark" ? "☀️" : "🌙"}</span>
+              <span>{resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}</span>
             </button>
           )}
           <div className="pt-2 border-t dark:border-gray-800 space-y-2">

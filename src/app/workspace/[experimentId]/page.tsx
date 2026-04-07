@@ -44,25 +44,35 @@ function sanitizeSvg(svg: string): string {
     .replace(/\s+on\w+='[^']*'/gi, "");
 }
 
+type ColumnStats = {
+  mean?: number;
+  std?: number;
+  min?: number;
+  max?: number;
+  [key: string]: number | undefined;
+};
+
+type ColumnInfo = {
+  name: string;
+  type: string;
+  uniqueCount: number;
+  nullCount: number;
+  stats?: ColumnStats;
+  topValues?: Record<string, number>;
+};
+
 type DatasetInfo = {
   id: string;
   name: string;
   fileUrl: string;
   rowCount: number | null;
-  columnInfo: any;
+  columnInfo: ColumnInfo[] | string | null;
 };
 
 type EdaAnalysis = {
   rowCount: number;
   columnCount: number;
-  columns: Array<{
-    name: string;
-    type: string;
-    uniqueCount: number;
-    nullCount: number;
-    stats?: any;
-    topValues?: any;
-  }>;
+  columns: ColumnInfo[];
   missingValues: Record<string, number>;
   summary: string;
 };
@@ -135,6 +145,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     if (!inputValue.trim() || loading) return;
 
     const userMessage = inputValue;
+    // Capture history snapshot BEFORE any state mutations
+    const historyForApi = [...messages, { role: "user", content: userMessage }];
+
     setInputValue("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setLoading(true);
@@ -147,7 +160,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, { role: "user", content: userMessage }],
+          messages: historyForApi,
           problemType: experiment?.problemType,
           context: `Experiment: ${experiment?.name}`,
         }),
@@ -615,7 +628,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                     (typeof dataset.columnInfo === "string"
                       ? JSON.parse(dataset.columnInfo)
                       : dataset.columnInfo
-                    ).map((col: any, idx: number) => (
+                    ).map((col: ColumnInfo | string, idx: number) => (
                       <div key={idx} className="text-sm bg-white p-2 rounded">
                         {typeof col === "string" ? col : col.name || `Column ${idx + 1}`}
                       </div>
@@ -700,7 +713,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                         <div className="mt-2">
                           <p className="text-xs text-gray-600 mb-1">Top Values:</p>
                           <div className="flex flex-wrap gap-1">
-                            {Object.entries(col.topValues).slice(0, 5).map(([value, count]: [string, any], i) => (
+                            {Object.entries(col.topValues).slice(0, 5).map(([value, count]: [string, number], i) => (
                               <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">
                                 {value}: {count}
                               </span>
