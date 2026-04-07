@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { db } from "@/db";
+import { executions } from "@/db/schema";
+
+type E2BResult = {
+  png?: string;
+  svg?: string;
+  logs?: { stdout: string[]; stderr: string[] };
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +45,7 @@ export async function POST(request: NextRequest) {
       const sandbox = await Sandbox.create({ apiKey });
 
       try {
-        let verifyResult: any = null;
+        let verifyResult: E2BResult | null = null;
 
         // If dataset URL is provided, download and save it as a CSV file
         if (datasetUrl) {
@@ -74,27 +82,18 @@ export async function POST(request: NextRequest) {
           // Write the CSV file to the sandbox filesystem (in the working directory)
           await sandbox.files.write("data.csv", csvContent);
 
-          // Verify the file was created and print debug info
+          // Verify the dataset file is accessible before running user code
           verifyResult = await sandbox.runCode(`
 import pandas as pd
 import os
 
-# Debug: Show current working directory and list files
-print("Current working directory:", os.getcwd())
-print("Files in current directory:", os.listdir('.'))
-
-# Verify data.csv exists and load it
 if os.path.exists('data.csv'):
     df_temp = pd.read_csv('data.csv')
-    print(f"✓ Dataset loaded successfully: {df_temp.shape[0]} rows, {df_temp.shape[1]} columns")
-    print(f"✓ Columns: {list(df_temp.columns)}")
+    print(f"Dataset loaded: {df_temp.shape[0]} rows, {df_temp.shape[1]} columns")
     del df_temp
 else:
-    print("✗ ERROR: data.csv not found!")
-    print("Available files:", os.listdir('.'))
+    raise FileNotFoundError("data.csv not found in sandbox")
 `);
-
-          console.log("Dataset verification:", verifyResult.text);
         }
 
         // Execute the user code
@@ -105,9 +104,10 @@ else:
 
         // Include verification output if dataset was loaded
         if (datasetUrl && verifyResult) {
-          // Capture stdout from verification
-          const verifyStdout = verifyResult.logs?.stdout?.join("\n") || verifyResult.text || "";
-          output += verifyStdout + "\n\n" + "=".repeat(50) + "\n\n";
+          const verifyStdout = verifyResult.logs?.stdout?.join("\n") || "";
+          if (verifyStdout) {
+            output += verifyStdout + "\n\n" + "=".repeat(50) + "\n\n";
+          }
         }
 
         // Capture stdout from execution (print statements)
@@ -128,8 +128,8 @@ else:
 
         // Get any plots/visualizations
         const charts = (execution.results || [])
-          .filter((result: any) => result.png || result.svg)
-          .map((result: any) => ({
+          .filter((result: E2BResult) => result.png || result.svg)
+          .map((result: E2BResult) => ({
             type: result.png ? "png" : "svg",
             data: result.png || result.svg,
           }));
@@ -137,8 +137,6 @@ else:
         // Persist execution to DB if experimentId provided
         if (experimentId) {
           try {
-            const { db } = await import("@/db");
-            const { executions } = await import("@/db/schema");
             const database = db();
             if (database) {
               await database.insert(executions).values({
@@ -156,9 +154,6 @@ else:
           }
         }
 
-        // Use kill() instead of close() in E2B v1.5.x
-        await sandbox.kill();
-
         return NextResponse.json({
           status: hasError ? "error" : "success",
           output: output,
@@ -166,26 +161,29 @@ else:
           charts,
           logs: execution.logs || [],
         });
-      } catch (error) {
-        // Ensure sandbox is killed even on error
-        await sandbox.kill();
+      } catch (error: unknown) {
         throw error;
+      } finally {
+        // Always kill the sandbox (use kill() in E2B v1.5.x)
+        await sandbox.kill();
       }
-    } catch (e2bError: any) {
+    } catch (e2bError: unknown) {
       console.error("E2B execution error:", e2bError);
+      const e2bMessage = e2bError instanceof Error ? e2bError.message : "Unknown E2B error";
       return NextResponse.json({
         status: "error",
-        output: `Failed to execute code: ${e2bError.message}\n\nThis might be due to E2B configuration issues. Please check your API key and network connection.`,
-        error: e2bError.message,
+        output: `Failed to execute code: ${e2bMessage}\n\nThis might be due to E2B configuration issues. Please check your API key and network connection.`,
+        error: e2bMessage,
         charts: [],
         logs: [],
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Execution error:", error);
+    const message = error instanceof Error ? error.message : "Failed to execute code";
     return NextResponse.json(
       {
-        error: error.message || "Failed to execute code",
+        error: message,
         status: "error",
       },
       { status: 500 }

@@ -221,9 +221,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
       setGeneratedCode(data.code);
       // Automatically switch to the Code tab to show the generated code
       setActiveTab("code");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Code generation error:", error);
-      alert(`Failed to generate code: ${error.message}`);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to generate code: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -252,12 +253,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
       setExecutionResult(data);
       // Automatically switch to the Results tab to show execution results
       setActiveTab("results");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Execution error:", error);
+      const message = error instanceof Error ? error.message : "Execution failed";
       setExecutionResult({
         status: "error",
         output: "",
-        error: error.message,
+        error: message,
       });
       // Also switch to results tab on error to show the error message
       setActiveTab("results");
@@ -301,9 +303,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
       const data = await response.json();
       setEdaAnalysis(data.analysis);
       setShowEdaReport(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("EDA error:", error);
-      alert(`Failed to generate EDA report: ${error.message}`);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to generate EDA report: ${message}`);
     } finally {
       setLoadingEda(false);
     }
@@ -508,7 +511,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                           {executionResult.charts && executionResult.charts.length > 0 && (
                             <div>
                               <p className="font-semibold mb-2">Visualizations:</p>
-                              {executionResult.charts.map((chart: any, idx: number) => (
+                              {executionResult.charts.map((chart, idx: number) => (
                                 <div key={idx} className="mb-4">
                                   {chart.type === "png" && (
                                     <Image
@@ -520,7 +523,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                                     />
                                   )}
                                   {chart.type === "svg" && (
-                                    <div dangerouslySetInnerHTML={{ __html: chart.data }} />
+                                    <div dangerouslySetInnerHTML={{ __html: sanitizeSvg(chart.data) }} />
                                   )}
                                 </div>
                               ))}
