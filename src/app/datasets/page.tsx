@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ML_PROBLEMS } from "@/lib/constants/ml-problems";
 
+const sampleDatasets = ML_PROBLEMS.map((p) => ({
+  name: p.name,
+  description: p.sampleDatasetDescription,
+  category: p.category.charAt(0).toUpperCase() + p.category.slice(1).replace(/_/g, " "),
+  type: p.id,
+  difficulty: p.difficulty,
+  icon: p.icon,
+}));
+
 type Dataset = {
   id: string;
   name: string;
@@ -32,15 +41,26 @@ export default function DatasetsPage() {
       if (!response.ok) throw new Error("Failed to fetch datasets");
       const data = await response.json();
       setDatasets(data.datasets || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch datasets");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDeleteDataset = async (id: string, name: string) => {
+    if (!confirm(`Delete dataset "${name}"? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(`/api/datasets/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete dataset");
+      setDatasets((prev) => prev.filter((d) => d.id !== id));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
   const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return "N/A";
+    if (bytes == null) return "N/A";
     return `${(bytes / 1024).toFixed(2)} KB`;
   };
 
@@ -53,14 +73,6 @@ export default function DatasetsPage() {
   };
 
   const uploadedDatasets = datasets.filter((d) => d.source === "uploaded");
-  const sampleDatasets = ML_PROBLEMS.map((p) => ({
-    name: p.name,
-    description: p.sampleDatasetDescription,
-    category: p.category.charAt(0).toUpperCase() + p.category.slice(1).replace(/_/g, " "),
-    type: p.id,
-    difficulty: p.difficulty,
-    icon: p.icon,
-  }));
 
   if (loading) {
     return (
@@ -120,7 +132,7 @@ export default function DatasetsPage() {
                         <div className="flex gap-4 text-sm text-gray-500">
                           {dataset.fileName && <span>File: {dataset.fileName}</span>}
                           <span>Size: {formatFileSize(dataset.fileSize)}</span>
-                          {dataset.rowCount && <span>Rows: {dataset.rowCount}</span>}
+                          {dataset.rowCount != null && <span>Rows: {dataset.rowCount}</span>}
                           <span>Uploaded: {formatDate(dataset.createdAt)}</span>
                         </div>
                       </div>
@@ -142,8 +154,8 @@ export default function DatasetsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
-              {sampleDatasets.map((sample, idx) => (
-                <div key={idx} className="border rounded-lg p-4">
+              {sampleDatasets.map((sample) => (
+                <div key={sample.type} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold">{sample.icon} {sample.name}</h3>
                     <div className="flex gap-1">
