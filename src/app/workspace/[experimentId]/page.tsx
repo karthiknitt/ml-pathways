@@ -67,6 +67,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const [showEdaReport, setShowEdaReport] = useState(false);
   const [loadingEda, setLoadingEda] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
+  const [isEditingCode, setIsEditingCode] = useState(false);
 
   const fetchExperiment = useCallback(async () => {
     try {
@@ -95,6 +96,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
             setExecutionResult({
               status: latest.status,
               output: latest.output || "",
+              charts: Array.isArray(latest.visualizations) ? latest.visualizations : [],
             });
           }
         }
@@ -196,6 +198,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         body: JSON.stringify({
           code: generatedCode,
           datasetUrl: dataset?.fileUrl || null,
+          experimentId,
         }),
       });
 
@@ -375,31 +378,46 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
               <Card>
                 <CardHeader>
                   <CardTitle>Generated Code</CardTitle>
-                  <CardDescription>Python code for your ML experiment</CardDescription>
+                  <CardDescription>Python code for your ML experiment — edit before running</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {generatedCode ? (
                     <>
-                      <div className="rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-                        <SyntaxHighlighter
-                          language="python"
-                          style={vscDarkPlus}
-                          customStyle={{
-                            margin: 0,
-                            padding: "1rem",
-                            fontSize: "0.875rem",
-                          }}
-                          showLineNumbers
-                        >
-                          {generatedCode}
-                        </SyntaxHighlighter>
-                      </div>
+                      {isEditingCode ? (
+                        <textarea
+                          className="w-full h-96 font-mono text-sm p-4 border rounded-lg bg-gray-950 text-gray-100 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={generatedCode}
+                          onChange={(e) => setGeneratedCode(e.target.value)}
+                          spellCheck={false}
+                        />
+                      ) : (
+                        <div className="rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+                          <SyntaxHighlighter
+                            language="python"
+                            style={vscDarkPlus}
+                            customStyle={{
+                              margin: 0,
+                              padding: "1rem",
+                              fontSize: "0.875rem",
+                            }}
+                            showLineNumbers
+                          >
+                            {generatedCode}
+                          </SyntaxHighlighter>
+                        </div>
+                      )}
                       <div className="mt-4 flex gap-2">
                         <Button onClick={handleRunCode} disabled={executing}>
                           {executing ? "Running..." : "Run Code"}
                         </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsEditingCode((prev) => !prev)}
+                        >
+                          {isEditingCode ? "Preview" : "Edit Code"}
+                        </Button>
                         <Button variant="outline" onClick={handleCopyCode}>
-                          Copy Code
+                          Copy
                         </Button>
                       </div>
                     </>

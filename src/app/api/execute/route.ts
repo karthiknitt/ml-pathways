@@ -5,7 +5,7 @@ import path from "path";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { code, datasetUrl } = body;
+    const { code, datasetUrl, experimentId } = body;
 
     if (!code) {
       return NextResponse.json(
@@ -133,6 +133,28 @@ else:
             type: result.png ? "png" : "svg",
             data: result.png || result.svg,
           }));
+
+        // Persist execution to DB if experimentId provided
+        if (experimentId) {
+          try {
+            const { db } = await import("@/db");
+            const { executions } = await import("@/db/schema");
+            const database = db();
+            if (database) {
+              await database.insert(executions).values({
+                experimentId,
+                code,
+                status: hasError ? "failed" : "completed",
+                output: output,
+                results: { output },
+                visualizations: charts,
+              });
+            }
+          } catch (dbError) {
+            // Non-fatal: log but don't fail the execution response
+            console.error("Failed to save execution to DB:", dbError);
+          }
+        }
 
         // Use kill() instead of close() in E2B v1.5.x
         await sandbox.kill();
