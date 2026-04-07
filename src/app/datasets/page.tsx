@@ -136,9 +136,18 @@ export default function DatasetsPage() {
                           <span>Uploaded: {formatDate(dataset.createdAt)}</span>
                         </div>
                       </div>
-                      <Button asChild size="sm" variant="outline">
-                        <Link href="/problems">Choose Problem Type</Link>
-                      </Button>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href="/problems">Choose Problem Type</Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteDataset(dataset.id, dataset.name)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -40,6 +40,17 @@ export default function ExperimentsPage() {
     }
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete experiment "${name}"? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(`/api/experiments/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete experiment");
+      setExperiments((prev) => prev.filter((e) => e.id !== id));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -124,11 +135,18 @@ export default function ExperimentsPage() {
                           <span>Created: {formatDate(experiment.createdAt)}</span>
                         </div>
                       </div>
-                      <Button asChild size="sm">
-                        <Link href={`/workspace/${experiment.id}`}>
-                          Open Workspace
-                        </Link>
-                      </Button>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button asChild size="sm">
+                          <Link href={`/workspace/${experiment.id}`}>Open Workspace</Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(experiment.id, experiment.name)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
