@@ -28,9 +28,16 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.production
 
 # vercel
 .vercel
+
+# Claude Code internal tooling
+.claude/skills/
+.claude/health-report.md
+.agents/
+skills-lock.json
 
 # typescript
 *.tsbuildinfo
