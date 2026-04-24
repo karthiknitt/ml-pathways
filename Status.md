@@ -1,6 +1,6 @@
 # ML Pathways — Project Status
 
-**Last updated:** 2026-04-07
+**Last updated:** 2026-04-24
 
 ## Completed Features
 
@@ -23,6 +23,10 @@
 - [x] Delete experiments (with ownership check)
 - [x] Delete datasets (with ownership check)
 - [x] Datasets page shows all 9 ML problem sample datasets with correct links
+- [x] All `alert()` calls replaced with sonner toast notifications
+- [x] All div-overlay modals (Data Summary, EDA Report, Create Experiment) migrated to ShadCN Dialog (ESC + focus trap)
+- [x] Message list React keys use stable UUIDs — no flicker during streaming
+- [x] SVG charts rendered via safe data URL img tag
 
 ### Data / API
 - [x] DELETE /api/experiments/[id] — with auth + ownership guard
@@ -32,9 +36,6 @@
 
 - Gemini streaming not supported — falls back to full response (SDK limitation)
 - `sampleDatasets` DB table defined in schema but not seeded — sample data served from public/ directly
-- Modal overlays (Data Summary, EDA Report) use div-based overlays, not ShadCN Dialog (no Escape key / focus trap)
-- Message list uses index as React key — may cause minor flicker during streaming on re-renders
-- `alert()` used in workspace for copy/export confirmations — should migrate to ShadCN toast
 
 ## TODO (Future)
 
@@ -42,6 +43,5 @@
 - [ ] Experiment comparison view (side-by-side metrics)
 - [ ] Model hyperparameter tuning UI
 - [ ] Export results as PDF report
-- [ ] Migrate workspace modals to ShadCN Dialog component
 - [ ] Gemini streaming support
 - [ ] Seed `sampleDatasets` DB table from public CSV files

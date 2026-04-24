@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -55,7 +56,7 @@ export default function DatasetsPage() {
       if (!response.ok) throw new Error("Failed to delete dataset");
       setDatasets((prev) => prev.filter((d) => d.id !== id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
     }
   };
 

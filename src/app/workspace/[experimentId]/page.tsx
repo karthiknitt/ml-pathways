@@ -3,14 +3,23 @@
 import { useState, useEffect, useCallback } from "react";
 import { use } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type Message = {
+  id: string;
   role: string;
   content: string;
 };
@@ -37,11 +46,14 @@ type ExperimentInfo = {
 };
 
 function sanitizeSvg(svg: string): string {
-  // Remove script tags and on* event handlers from SVG to prevent XSS
   return svg
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/\s+on\w+="[^"]*"/gi, "")
     .replace(/\s+on\w+='[^']*'/gi, "");
+}
+
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sanitizeSvg(svg))}`;
 }
 
 type ColumnStats = {
@@ -83,6 +95,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
   const [experiment, setExperiment] = useState<ExperimentInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: "initial",
       role: "assistant",
       content: "Hello! I'm your ML assistant. I can help you explore your data, generate code, and understand your results. What would you like to do?",
     },
@@ -107,17 +120,20 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         const data = await response.json();
         setExperiment(data.experiment);
 
-        // Load dataset if available
         if (data.dataset) {
           setDataset(data.dataset);
         }
 
-        // Load previous messages if any
         if (data.messages && data.messages.length > 0) {
-          setMessages((prev) => [prev[0], ...data.messages.reverse()]);
+          setMessages((prev) => [
+            prev[0],
+            ...data.messages.reverse().map((m: { id?: string; role: string; content: string }) => ({
+              ...m,
+              id: m.id ?? crypto.randomUUID(),
+            })),
+          ]);
         }
 
-        // Load latest execution if any
         if (data.executions && data.executions.length > 0) {
           const latest = data.executions[0];
           if (latest.code) {
@@ -145,15 +161,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     if (!inputValue.trim() || loading) return;
 
     const userMessage = inputValue;
-    // Capture history snapshot BEFORE any state mutations
-    const historyForApi = [...messages, { role: "user", content: userMessage }];
+    const historyForApi = [...messages, { id: crypto.randomUUID(), role: "user", content: userMessage }];
 
     setInputValue("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: userMessage }]);
     setLoading(true);
 
-    // Add empty assistant message slot to stream into
-    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+    // Add empty assistant message slot — id preserved throughout streaming so React doesn't remount
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: "" }]);
 
     try {
       const response = await fetch("/api/chat", {
@@ -180,7 +195,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
-            role: "assistant",
+            ...updated[updated.length - 1],
             content: updated[updated.length - 1].content + chunk,
           };
           return updated;
@@ -191,7 +206,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
-          role: "assistant",
+          ...updated[updated.length - 1],
           content: `Error: ${message}. Please try again.`,
         };
         return updated;
@@ -232,12 +247,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
       const data = await response.json();
       setGeneratedCode(data.code);
-      // Automatically switch to the Code tab to show the generated code
       setActiveTab("code");
     } catch (error: unknown) {
       console.error("Code generation error:", error);
       const message = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to generate code: ${message}`);
+      toast.error(`Failed to generate code: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -264,7 +278,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
       const data = await response.json();
       setExecutionResult(data);
-      // Automatically switch to the Results tab to show execution results
       setActiveTab("results");
     } catch (error: unknown) {
       console.error("Execution error:", error);
@@ -274,7 +287,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         output: "",
         error: message,
       });
-      // Also switch to results tab on error to show the error message
       setActiveTab("results");
     } finally {
       setExecuting(false);
@@ -283,12 +295,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(generatedCode);
-    alert("Code copied to clipboard!");
+    toast.success("Code copied to clipboard!");
   };
 
   const handleViewDataSummary = () => {
     if (!dataset) {
-      alert("No dataset available. Please upload a dataset first.");
+      toast.error("No dataset available. Please upload a dataset first.");
       return;
     }
     setShowDataSummary(true);
@@ -296,7 +308,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
   const handleGenerateEdaReport = async () => {
     if (!dataset || !dataset.fileUrl) {
-      alert("No dataset available. Please upload a dataset first.");
+      toast.error("No dataset available. Please upload a dataset first.");
       return;
     }
 
@@ -319,7 +331,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     } catch (error: unknown) {
       console.error("EDA error:", error);
       const message = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to generate EDA report: ${message}`);
+      toast.error(`Failed to generate EDA report: ${message}`);
     } finally {
       setLoadingEda(false);
     }
@@ -327,7 +339,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
 
   const handleExportResults = () => {
     if (!executionResult) {
-      alert("No results to export. Please run your code first.");
+      toast.error("No results to export. Please run your code first.");
       return;
     }
 
@@ -363,6 +375,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
     );
   }
 
+  const parsedColumnInfo = dataset?.columnInfo
+    ? typeof dataset.columnInfo === "string"
+      ? JSON.parse(dataset.columnInfo)
+      : dataset.columnInfo
+    : [];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -388,9 +406,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                 <CardContent>
                   <div className="space-y-4">
                     <div className="h-96 overflow-y-auto border rounded-lg p-4 space-y-4">
-                      {messages.map((msg, idx) => (
+                      {messages.map((msg) => (
                         <div
-                          key={idx}
+                          key={msg.id}
                           className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                         >
                           <div
@@ -536,7 +554,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                                     />
                                   )}
                                   {chart.type === "svg" && (
-                                    <div dangerouslySetInnerHTML={{ __html: sanitizeSvg(chart.data) }} />
+                                    <img
+                                      src={svgToDataUrl(chart.data)}
+                                      alt="Chart visualization"
+                                      className="w-full h-auto"
+                                    />
                                   )}
                                 </div>
                               ))}
@@ -600,16 +622,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
         </div>
       </div>
 
-      {/* Data Summary Modal */}
-      {showDataSummary && dataset && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDataSummary(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold">Dataset Summary</h2>
-              <Button variant="outline" size="sm" onClick={() => setShowDataSummary(false)}>
-                Close
-              </Button>
-            </div>
+      {/* Data Summary Dialog */}
+      <Dialog open={showDataSummary} onOpenChange={setShowDataSummary}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dataset Summary</DialogTitle>
+            <DialogDescription>Overview of your loaded dataset</DialogDescription>
+          </DialogHeader>
+          {dataset && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -622,34 +642,28 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                 </div>
               </div>
               <div className="bg-purple-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Columns ({dataset.columnInfo ? (typeof dataset.columnInfo === "string" ? JSON.parse(dataset.columnInfo).length : dataset.columnInfo.length) : 0})</p>
+                <p className="text-sm text-gray-600 mb-2">Columns ({parsedColumnInfo.length})</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {dataset.columnInfo &&
-                    (typeof dataset.columnInfo === "string"
-                      ? JSON.parse(dataset.columnInfo)
-                      : dataset.columnInfo
-                    ).map((col: ColumnInfo | string, idx: number) => (
-                      <div key={idx} className="text-sm bg-white p-2 rounded">
-                        {typeof col === "string" ? col : col.name || `Column ${idx + 1}`}
-                      </div>
-                    ))}
+                  {parsedColumnInfo.map((col: ColumnInfo | string, idx: number) => (
+                    <div key={idx} className="text-sm bg-white p-2 rounded">
+                      {typeof col === "string" ? col : col.name || `Column ${idx + 1}`}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
-      {/* EDA Report Modal */}
-      {showEdaReport && edaAnalysis && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowEdaReport(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold">Exploratory Data Analysis Report</h2>
-              <Button variant="outline" size="sm" onClick={() => setShowEdaReport(false)}>
-                Close
-              </Button>
-            </div>
+      {/* EDA Report Dialog */}
+      <Dialog open={showEdaReport} onOpenChange={setShowEdaReport}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Exploratory Data Analysis Report</DialogTitle>
+            <DialogDescription>Statistical summary and column-level insights</DialogDescription>
+          </DialogHeader>
+          {edaAnalysis && (
             <div className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -733,9 +747,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ experiment
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

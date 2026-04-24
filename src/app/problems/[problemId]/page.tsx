@@ -2,12 +2,20 @@
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { getProblemById } from "@/lib/constants/ml-problems";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Link from "next/link";
 
 interface ProblemPageProps {
@@ -40,7 +48,7 @@ export default function ProblemPage({ params }: ProblemPageProps) {
 
   const handleConfirmCreate = async () => {
     if (!experimentName.trim()) {
-      alert("Please enter an experiment name");
+      toast.error("Please enter an experiment name");
       return;
     }
 
@@ -69,7 +77,7 @@ export default function ProblemPage({ params }: ProblemPageProps) {
       router.push(`/workspace/${data.experiment.id}`);
     } catch (error: any) {
       console.error("Create experiment error:", error);
-      alert(`Failed to create experiment: ${error.message}`);
+      toast.error(`Failed to create experiment: ${error.message}`);
     } finally {
       setCreating(false);
     }
@@ -195,36 +203,34 @@ export default function ProblemPage({ params }: ProblemPageProps) {
         </CardContent>
       </Card>
 
-      {showCreateDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Create New Experiment</CardTitle>
-              <CardDescription>Give your experiment a name to get started</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="expName">Experiment Name</Label>
-                <Input
-                  id="expName"
-                  placeholder={`My ${problem.name} Experiment`}
-                  value={experimentName}
-                  onChange={(e) => setExperimentName(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleConfirmCreate} disabled={creating} className="flex-1">
-                  {creating ? "Creating..." : "Create Experiment"}
-                </Button>
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <Dialog open={showCreateDialog} onOpenChange={(open) => !creating && setShowCreateDialog(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Experiment</DialogTitle>
+            <DialogDescription>Give your experiment a name to get started</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="expName">Experiment Name</Label>
+              <Input
+                id="expName"
+                placeholder={`My ${problem.name} Experiment`}
+                value={experimentName}
+                onChange={(e) => setExperimentName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleConfirmCreate} disabled={creating} className="flex-1">
+                {creating ? "Creating..." : "Create Experiment"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

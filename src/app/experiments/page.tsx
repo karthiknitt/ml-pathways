@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -47,7 +48,7 @@ export default function ExperimentsPage() {
       if (!response.ok) throw new Error("Failed to delete experiment");
       setExperiments((prev) => prev.filter((e) => e.id !== id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
     }
   };
 
