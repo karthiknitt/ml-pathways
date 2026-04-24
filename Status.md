@@ -1,6 +1,6 @@
 # ML Pathways — Project Status
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-04-24 (session 2)
 
 ## Completed Features
 
@@ -27,21 +27,18 @@
 - [x] All div-overlay modals (Data Summary, EDA Report, Create Experiment) migrated to ShadCN Dialog (ESC + focus trap)
 - [x] Message list React keys use stable UUIDs — no flicker during streaming
 - [x] SVG charts rendered via safe data URL img tag
+- [x] User profile page at /profile — shows name/email/stats, allows name update
+- [x] Header username is now a clickable link to /profile
 
 ### Data / API
+- [x] GET/PATCH /api/profile — returns user info + experiment/dataset counts; PATCH updates display name
 - [x] DELETE /api/experiments/[id] — with auth + ownership guard
 - [x] DELETE /api/datasets/[id] — with auth + ownership guard
-
-## Known Limitations
-
-- Gemini streaming not supported — falls back to full response (SDK limitation)
-- `sampleDatasets` DB table defined in schema but not seeded — sample data served from public/ directly
+- [x] Gemini streaming via sendMessageStream + systemInstruction (no longer falls back to full response)
+- [x] Seed script: `npm run db:seed` populates sampleDatasets table from public CSVs with preview data
 
 ## TODO (Future)
 
-- [ ] User profile / account settings page
 - [ ] Experiment comparison view (side-by-side metrics)
 - [ ] Model hyperparameter tuning UI
 - [ ] Export results as PDF report
-- [ ] Gemini streaming support
-- [ ] Seed `sampleDatasets` DB table from public CSV files

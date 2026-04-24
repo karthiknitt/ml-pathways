@@ -55,9 +55,12 @@ export function Header() {
             <div className="w-20 h-9 bg-gray-100 animate-pulse rounded" />
           ) : session ? (
             <>
-              <span className="text-sm text-gray-600 hidden md:inline">
+              <Link
+                href="/profile"
+                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 hidden md:inline"
+              >
                 {session.user?.name || session.user?.email}
-              </span>
+              </Link>
               <Button
                 variant="outline"
                 onClick={handleSignOut}
@@ -151,9 +154,13 @@ export function Header() {
           <div className="pt-2 border-t dark:border-gray-800 space-y-2">
             {session ? (
               <>
-                <p className="text-sm text-gray-500">
+                <Link
+                  href="/profile"
+                  className="block text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {session.user?.name || session.user?.email}
-                </p>
+                </Link>
                 <Button
                   variant="outline"
                   className="w-full"

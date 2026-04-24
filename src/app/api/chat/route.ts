@@ -76,16 +76,37 @@ export async function POST(request: NextRequest) {
                 controller.enqueue(new TextEncoder().encode(text));
               }
             }
-          } else {
-            // Gemini: fall back to full response (no streaming SDK support yet)
-            const { chat } = await import("@/lib/ai/providers");
-            const response = await chat(
-              [{ role: "system", content: systemPrompt }, ...messages],
-              provider as "gemini"
+          } else if (provider === "gemini") {
+            const apiKey = process.env.GOOGLE_API_KEY;
+            if (!apiKey) throw new Error("Google API key not configured");
+
+            const { GoogleGenerativeAI } = await import("@google/generative-ai");
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+              model: "gemini-1.5-pro",
+              systemInstruction: systemPrompt,
+            });
+
+            const conversationMessages = messages.filter(
+              (m: { role: string }) => m.role !== "system"
             );
-            controller.enqueue(
-              new TextEncoder().encode(response.content)
+            const history = conversationMessages.slice(0, -1).map(
+              (m: { role: string; content: string }) => ({
+                role: m.role === "user" ? "user" : "model",
+                parts: [{ text: m.content }],
+              })
             );
+            const lastMessage = conversationMessages[conversationMessages.length - 1];
+
+            const geminiChat = model.startChat({ history });
+            const result = await geminiChat.sendMessageStream(lastMessage.content);
+
+            for await (const chunk of result.stream) {
+              const text = chunk.text();
+              if (text) {
+                controller.enqueue(new TextEncoder().encode(text));
+              }
+            }
           }
         } catch (err: unknown) {
           const message =
